@@ -34,12 +34,15 @@ library(readr)
 library(RODBC)
 library(stringr)
 library(readxl)
+library(leaflet.extras)
 
 
 # Load the dataset----
 data.path <- "C:/Users/mkamali/OneDrive - HNTB/R Projects/data_axle"
 data_file <- paste0(data.path, "/data/data_axle_SOTR_100prcntl_combined.csv")  # Ensure this file exists
 df <- fread(data_file)
+df <- df %>% filter(!is.na(Latitude), !is.na(Longitude), !is.na(Employees))
+df$Employees <- as.numeric(df$Employees)
 
 # Define UI----
 ui <- fluidPage(
@@ -95,6 +98,7 @@ server <- function(input, output, session) {
   output$map <- renderLeaflet({
     leaflet() %>%
       addTiles() %>%
+
       setView(lng = mean(df$Longitude, na.rm = TRUE),
               lat = mean(df$Latitude, na.rm = TRUE),
               zoom = 6)
@@ -103,13 +107,24 @@ server <- function(input, output, session) {
   # Update map when filters change
   observe({
     leafletProxy("map", data = filtered_data()) %>%
-      clearMarkers() %>%
-      addCircleMarkers(lng = ~Longitude, lat = ~Latitude,
-                       radius = 1, color = "blue",
-                       popup = ~paste0("<b>", Company, "</b><br>Industry: ", Industry,
-                                       "<br>Employees: ", Employees,
-                                       "<br>Year: ", Year))
-  })
+      clearHeatmap() %>%
+      addHeatmap(
+        lng = ~Longitude, 
+        lat = ~Latitude, 
+        intensity = ~Employees,  # Use employment as the weight
+        blur = 7, 
+        max = 2,
+        #max = max(data()$Employees, na.rm = TRUE), 
+        radius = 10
+      )# end of heatmap
+      
+      # clearMarkers() %>%
+      # addCircleMarkers(lng = ~Longitude, lat = ~Latitude,
+      #                  radius = 1, color = "blue",
+      #                  popup = ~paste0("<b>", Company, "</b><br>Industry: ", Industry,
+      #                                  "<br>Employees: ", Employees,
+      #                                  "<br>Year: ", Year))
+  })# end of observe
 }
 
 # Run the App
